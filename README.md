@@ -1,10 +1,6 @@
 # Pixilang Chip8
-====================================
-An emulator for the Chip8 platform written in Pixilang.
+An emulator for the Chip8 platform written in Pixilang just for fun!
 
 
-![Blinky]("screenshots/Screen1.png", "Blinky")
-!IBM
-!BMP Reader
-!Sierpinski
-!Space Invaders
+![Blinky]("/screenshots/Screen1.png")
+
