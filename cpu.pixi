@@ -1,0 +1,559 @@
+include "font.pixi"
+
+
+// Глобальные переменные
+// Для удобства отличения моих переменных от встроенных, советую добовлять префикс C8 [Chip8]
+
+C8_SCR   = new(64 * 32) ; clean(C8_SCR)    // Экран Chip8
+C8_RAM   = new(4096)    ; clean(C8_RAM)    // Инициализируем память Chip8
+C8_REG   = new(16)      ; clean(C8_REG)    // Инициализируем регистры Chip8 
+C8_KEY   = new(16)      ; clean(C8_KEY)    // Клавиатура Chip8
+C8_STACK = new(16)      ; clean(C8_STACK)  // Стэк Chip8 для работы подпрограмм
+C8_FONT  = C8_get_font()                   // Шрифт Chip8
+C8_S_PTR = 0                               // Указатель на вершину стэка
+C8_I     = 0                               // Индекс I -> необходим для отрисовки спрайтов Chip8
+C8_PC    = 0x200                           // Счетчик комманд Chip8
+C8_DT    = 0                               // Дельта таймер
+C8_ST    = 0                               // Саунд таймер
+C8_DRAW  = 0                               // Статус для рисования экрана                             
+
+
+
+// PIXILANG инициализация и настройка экрана
+resize(get_screen(), WINDOW_XSIZE, WINDOW_YSIZE)
+PX_SCR   = get_screen() 
+set_pixel_size(WINDOW_XSIZE / 64)
+X_OFFSET = -WINDOW_XSIZE div 2
+Y_OFFSET = -WINDOW_YSIZE div 2
+
+
+
+// Функции загрузки рома
+
+fn PX_open_rom()
+{
+
+    $file = file_dialog( "Select some file", "", "fff" )
+    
+    ret($file)
+    
+    if $file < 0 { halt }
+
+    while 1 
+    {     
+        while( get_event() ) { if EVT[ EVT_TYPE ] == EVT_QUIT { halt } }
+        frame() 
+    }
+}
+
+
+// Функции C8_STACK
+
+fn C8_push($value) 
+{
+    if C8_S_PTR < get_size(C8_STACK)
+    {
+        C8_STACK[C8_S_PTR] = $value
+        C8_S_PTR + 1
+        
+    }
+}
+
+
+fn C8_pop() 
+{
+    C8_S_PTR - 1
+    ret(C8_STACK[C8_S_PTR])
+}
+
+
+// Функции экрана
+
+fn PX_draw_screen()  // Рисование экрана пикселями
+{    
+    $x = 0 ; $y = 0
+    
+    for (i = 0; i < get_size(C8_SCR); i + 1) 
+    {
+        
+        if C8_SCR[i] == 1
+        {
+            dot(X_OFFSET + $x, Y_OFFSET + $y, WHITE)
+            //fbox(X_OFFSET + $x, Y_OFFSET + $y, 1, 1, WHITE)
+            $x + 1
+        }
+        else
+        {
+            dot(X_OFFSET + $x, Y_OFFSET + $y, RED)
+            //fbox(X_OFFSET + $x, Y_OFFSET + $y, 1, 1, RED)
+            $x + 1
+        }
+        if $x == 64 { $x = 0; $y + 1}
+    }   
+    
+}
+
+fn C8_draw_text_screen()  // Рисование экрана в консоли
+{
+    $offset = 0
+    for ($j = 0; $j < get_size(C8_SCR); $j + 1) 
+    {
+        if C8_SCR[$j] == 1 
+        {
+            printf(".", C8_SCR[$j]) 
+            $offset = $offset + 1
+        } 
+        else 
+        {
+            printf(" ", C8_SCR[$j]) 
+            $offset = $offset + 1
+        }
+        
+        
+        if ($offset == 64) 
+        { 
+            $offset = 0 ; printf("\n")
+        }
+    }
+    
+    for (i = 0; i < 64; i + 1)
+    {
+        printf("-")
+    } 
+    printf("\n")  
+}
+
+
+fn C8_scr_clear() 
+{
+    clean(C8_SCR)
+    clear()
+}
+
+
+// Загрузка ROM в память консоли
+
+
+fn C8_load_rom($filename)
+{
+    $stream = fopen($filename, "rb")
+    $file = fload($stream)
+    $rom_addr = 0x200
+    
+    for (i = 0 ; i < get_size($file); i + 1)
+    {
+        if $file[i] >= 0xffffff00 
+        {
+            C8_RAM[$rom_addr + i] = $file[i] & 0x000000ff
+        } 
+        else 
+        {
+            C8_RAM[$rom_addr + i] = $file[i]
+        }
+            
+    }
+    
+    fclose($stream)
+}
+
+fn C8_load_font()
+{
+    $font_addr = 0x050
+    for ($j = 0; $j < get_size(C8_FONT); $j + 1) 
+    {
+        C8_RAM[$font_addr] = C8_FONT[$j]
+        $font_addr + 1
+    }
+}
+
+fn C8_load_both($filename)
+{
+    C8_load_font()
+    C8_load_rom($filename)
+}
+
+
+// Функции CPU
+
+fn C8_read_opcode($address)
+{
+    ret((C8_RAM[$address] << 8) | (C8_RAM[$address + 1]))
+}
+
+
+fn C8_fetch() 
+{
+    $instruction = C8_read_opcode(C8_PC)
+    C8_PC + 2
+    ret($instruction)
+}
+
+
+fn C8_update_st() 
+{
+    if C8_ST > 0
+    {
+        C8_ST - 1
+    }
+    
+    if C8_ST == 0
+    {
+        printf("BEEP\n")
+    }
+
+}
+
+
+fn C8_update_dt()
+{
+    if C8_DT > 0
+    {
+        C8_DT - 1
+    }
+}
+
+
+fn C8_update_both()
+{
+    C8_update_st()
+    C8_update_dt()
+}
+
+
+fn C8_execute($pause)
+{
+    
+    if $pause != 0
+    
+    {
+        
+        C8_DRAW = 0
+        $opcode = C8_fetch()
+        $x      = ($opcode >> 8) & 0xF
+        $y      = ($opcode >> 4) & 0xF
+        $n      = $opcode & 0x000F
+        $nn     = $opcode & 0xFF
+        $nnn    = $opcode & 0x0FFF
+        
+        
+        if $opcode != 0x0000 {
+        
+            if $opcode == 0x00E0
+            {
+                C8_DRAW = 1
+                C8_scr_clear()
+            }
+            
+            if $opcode == 0x00EE
+            {
+                C8_PC = C8_pop()
+            }
+            
+            if ($opcode & 0xF000) == 0x1000
+            {
+                C8_PC = $nnn
+            }
+            
+            if ($opcode & 0xF000) == 0x2000
+            {
+                C8_push(C8_PC)
+                C8_PC = $nnn
+            }
+            
+            if ($opcode & 0xF000) == 0x3000
+            {
+                if C8_REG[$x] == $nn
+                {
+                    C8_PC + 2
+                }
+            }
+            
+            if ($opcode & 0xF000) == 0x4000
+            {
+                if C8_REG[$x] != $nn
+                {
+                    C8_PC + 2
+                }
+            }
+            
+            if ($opcode & 0xF000) == 0x5000
+            {
+                if C8_REG[$x] == C8_REG[$y]
+                {
+                    C8_PC + 2
+                }
+            }
+            
+            if ($opcode & 0xF000) == 0x6000
+            {
+                C8_REG[$x] = $nn
+            }
+            
+            if ($opcode & 0xF000) == 0x7000
+            {
+                C8_REG[$x] = (C8_REG[$x] + $nn) & 0xFF
+            }
+            
+            if ($opcode & 0xF00F) == 0x8000
+            {
+                C8_REG[$x] = C8_REG[$y]
+            }
+            
+            if ($opcode & 0xF00F) == 0x8001
+            {
+                C8_REG[$x] = C8_REG[$x] | C8_REG[$y]
+            }
+            
+            if ($opcode & 0xF00F) == 0x8002
+            {
+                C8_REG[$x] = C8_REG[$x] & C8_REG[$y]
+            }
+            
+            if ($opcode & 0xF00F) == 0x8003
+            {
+                C8_REG[$x] = C8_REG[$x] ^ C8_REG[$y]
+            }
+            
+            if ($opcode & 0xF00F) == 0x8004
+            {
+                C8_REG[$x] = (C8_REG[$x] & 0xFF) + (C8_REG[$y] & 0xFF)
+                
+                if C8_REG[$x] > 0xFF
+                {
+                    C8_REG[0xF] = 1
+                }
+                else
+                {
+                    C8_REG[0xF] = 0
+                }
+                C8_REG[$x] & 0xFF
+            }
+            
+            if ($opcode & 0xF00F) == 0x8005
+            {
+                C8_REG[$x] = (C8_REG[$x] & 0xFF) - (C8_REG[$y] & 0xFF)
+                
+                if C8_REG[$x] < 0
+                {
+                    C8_REG[0xF] = 0
+                }
+                else
+                {
+                    C8_REG[0xF] = 1
+                }
+                
+                C8_REG[$x] & 0xFF
+            }
+            
+            if ($opcode & 0xF00F) == 0x8006
+            {
+                
+                C8_REG[$x] = C8_REG[$x] >> 1
+                $lsb = C8_REG[$x] & 1
+                
+                if ($lsb) < 1
+                {
+                    C8_REG[0xF] = 1
+                } 
+                else 
+                { 
+                    C8_REG[0xF] = 0 
+                }
+            }
+            
+            if ($opcode & 0xF00F) == 0x8007
+            {
+                C8_REG[$x] = (C8_REG[$y] & 0xFF) - (C8_REG[$x] & 0xFF)
+                
+                if C8_REG[$x] < 0
+                {
+                    C8_REG[0xF] = 0
+                }
+                else
+                {
+                    C8_REG[0xF] = 1
+                }
+                
+                C8_REG[$x] & 0xFF
+            }
+            
+            if ($opcode & 0xF00F) == 0x800E
+            {
+                $msb = (C8_REG[$x] >> 7) & 1
+                C8_REG[$x] << 1
+                C8_REG[0xF] = $msb
+            }
+            
+            if ($opcode & 0xF00F) == 0x9000
+            {
+                if C8_REG[$x] != C8_REG[$y]
+                {
+                    C8_PC + 2
+                }
+            }
+            
+            if ($opcode & 0xF000) == 0xA000
+            {
+                C8_I = $nnn
+            }
+            
+            if ($opcode & 0xF000) == 0xB000
+            {
+                C8_PC = C8_REG[0] + $nnn
+            }
+            
+            if ($opcode & 0xF000) == 0xC000
+            {
+                $rn = rand() & 0xFF
+                C8_REG[$x] = $rn & $nn
+            }
+            
+            if ($opcode & 0xF000) == 0xD000
+            {
+                C8_DRAW = 1
+                $x_cord = C8_REG[$x] 
+                $y_cord = C8_REG[$y] 
+
+                C8_REG[0xF] = 0
+                $flipped = 0
+
+                $iy = 0; $ix = 0
+                
+                
+                while ($iy < $n) {
+                    $adr = C8_I + $iy
+                    $pixel = C8_RAM[$adr]
+                
+                    if ($pixel & (0x80 >> $ix)) != 0
+                    {
+                    
+                        $xx = ($x_cord + $ix)
+                        $yy = ($y_cord + $iy)
+                        
+                        $inx = $xx + (64 * $yy)
+                        
+                        $flipped = $flipped | C8_SCR[$inx]
+                        C8_SCR[$inx] ^ 1   
+                    }
+                    
+                    $ix + 1
+                    if $ix == 8 { $ix = 0; $iy + 1 }
+                
+                    if $flipped == 1 
+                    {
+                        C8_REG[0xF] = 1
+                    }
+                    else
+                    {
+                        C8_REG[0xF] = 0
+                    }  
+                }
+            }
+            
+            if ($opcode & 0xF0FF) == 0xE09E
+            {
+                $key = C8_KEY[C8_REG[$x]]
+                
+                if $key == 1
+                {
+                    C8_PC + 2
+                }
+            }
+            
+            if ($opcode & 0xF0FF) == 0xE0A1
+            {
+                $key = C8_KEY[C8_REG[$x]]
+                
+                if $key == 0
+                {
+                    C8_PC + 2
+                }
+            }
+            
+            if ($opcode & 0xF0FF) == 0xF007
+            {
+                C8_REG[$x] = C8_DT
+            }
+            
+            if ($opcode & 0xF0FF) == 0xF00A
+            {
+                $pressed = 0
+                
+                for ($i = 0; $i < get_size(C8_KEY); $i + 1)
+                {
+                    if C8_KEY[$i] == 1
+                    {
+                        C8_REG[$x] = $i
+                        $pressed = 1
+                        break
+                    }
+                }
+                if $pressed == 0
+                {
+                    C8_PC - 2
+                }
+            
+            }
+            
+            if ($opcode & 0xF0FF) == 0xF015
+            {
+                C8_DT = C8_REG[$x]
+            }
+            
+            if ($opcode & 0xF0FF) == 0xF018
+            {
+                C8_ST = C8_REG[$x]
+            }
+            
+            if ($opcode & 0xF0FF) == 0xF01E
+            {
+                C8_I = C8_I + C8_REG[$x]
+            }
+            
+            if ($opcode & 0xF0FF) == 0xF029
+            {
+                C8_I = C8_REG[$x] * 5
+            }
+            
+            if ($opcode & 0xF0FF) == 0xF033
+            {
+                $val1 = C8_REG[$x] div 100
+                $val2 = (C8_REG[$x] div 10) % 10
+                $val3 = C8_REG[$x] % 10
+                C8_RAM[C8_I] = $val1
+                C8_RAM[C8_I + 1] = $val2
+                C8_RAM[C8_I + 2] = $val3
+            }
+            
+            if ($opcode & 0xF0FF) == 0xF055
+            {
+                for ($idx = 0; $idx < ($x + 1); $idx + 1)
+                {
+                    C8_RAM[C8_I + $idx] = C8_REG[$idx]  
+                }
+
+                
+            }
+            
+            if ($opcode & 0xF0FF) == 0xF065
+            {
+                for ($idx = 0; $idx < ($x + 1); $idx + 1)
+                {
+                    C8_REG[$idx] = C8_RAM[C8_I + $idx]
+                }
+                
+            }  
+        }
+    }
+} 
+
+
+
+
+
+
+
+
+
+
+

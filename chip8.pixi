@@ -1,0 +1,86 @@
+include "cpu.pixi"
+
+fn main() 
+{   
+    $rom = PX_open_rom() // Открываем диалоговое и выбираем файл рома 
+    C8_load_rom($rom)    // Загружаем ром в память консоли
+    
+    
+    $pause = 1
+    run = 1
+    while run
+    {
+        //C8_update_both()    // Обновление таймеров консоли
+        C8_execute($pause)    // Основной цикл процессора
+        if C8_DRAW == 1 {PX_draw_screen(); frame()} // Вывод экрана
+
+        
+        //if C8_DRAW == 1 { C8_draw_text_screen()} // Текстовый экран
+            
+        /* STANDARD KEYBOARD TO CHIP 8 KEY
+        1 2 3 C  49  50  51  52
+        4 5 6 D  113 119 101 114
+        7 8 9 E  97  115 100 102
+        A 0 B F  122 120 99  118
+        */
+            
+        
+        while(get_event()) 
+        { 
+        
+            if EVT[ EVT_TYPE ] == EVT_BUTTONDOWN
+            
+            {
+                key = EVT[ EVT_KEY ]
+                
+                if key == 120  { C8_KEY[0x0] = 1 }
+                if key == 49   { C8_KEY[0x1] = 1 }
+                if key == 50   { C8_KEY[0x2] = 1 }
+                if key == 51   { C8_KEY[0x3] = 1 }
+                if key == 113  { C8_KEY[0x4] = 1 }
+                if key == 119  { C8_KEY[0x5] = 1 }
+                if key == 101  { C8_KEY[0x6] = 1 }
+                if key == 97   { C8_KEY[0x7] = 1 }
+                if key == 115  { C8_KEY[0x8] = 1 }
+                if key == 100  { C8_KEY[0x9] = 1 }
+                if key == 122  { C8_KEY[0xA] = 1 }
+                if key == 99   { C8_KEY[0xB] = 1 }
+                if key == 52   { C8_KEY[0xC] = 1 }
+                if key == 114  { C8_KEY[0xD] = 1 }
+                if key == 102  { C8_KEY[0xE] = 1 }
+                if key == 118  { C8_KEY[0xF] = 1 }
+                if key == 112  { $pause ^ 1      } // Пауза
+            }
+        
+            if EVT[ EVT_TYPE ] == EVT_BUTTONUP
+            
+            {
+                key = EVT[ EVT_KEY ]
+                
+                if key == 120  { C8_KEY[0x0] = 0 }
+                if key == 49   { C8_KEY[0x1] = 0 }
+                if key == 50   { C8_KEY[0x2] = 0 }
+                if key == 51   { C8_KEY[0x3] = 0 }
+                if key == 113  { C8_KEY[0x4] = 0 }
+                if key == 119  { C8_KEY[0x5] = 0 }
+                if key == 101  { C8_KEY[0x6] = 0 }
+                if key == 97   { C8_KEY[0x7] = 0 }
+                if key == 115  { C8_KEY[0x8] = 0 }
+                if key == 100  { C8_KEY[0x9] = 0 }
+                if key == 122  { C8_KEY[0xA] = 0 }
+                if key == 99   { C8_KEY[0xB] = 0 }
+                if key == 52   { C8_KEY[0xC] = 0 }
+                if key == 114  { C8_KEY[0xD] = 0 }
+                if key == 102  { C8_KEY[0xE] = 0 }
+                if key == 118  { C8_KEY[0xF] = 0 }
+            }
+        
+            if EVT[ EVT_TYPE ] == EVT_QUIT { halt }    
+        }     
+        
+    }
+}
+
+main()
+
+
