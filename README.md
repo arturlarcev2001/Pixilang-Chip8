@@ -3,7 +3,7 @@
 An emulator for the Chip8 platform written in Pixilang.
 
 
-!Blinky
+![Blinky]("screenshots/screen1.png", "Blinky")
 !IBM
 !BMP Reader
 !Sierpinski
