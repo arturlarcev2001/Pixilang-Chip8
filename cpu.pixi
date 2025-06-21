@@ -1,25 +1,25 @@
 include "font.pixi"
 
 
-// Глобальные переменные
-// Для удобства отличения моих переменных от встроенных, советую добовлять префикс C8 [Chip8]
+// Globals
+// For convinience I recommend to add suffix C8 to your function\variable\container names
 
-C8_SCR   = new(64 * 32) ; clean(C8_SCR)    // Экран Chip8
-C8_RAM   = new(4096)    ; clean(C8_RAM)    // Инициализируем память Chip8
-C8_REG   = new(16)      ; clean(C8_REG)    // Инициализируем регистры Chip8 
-C8_KEY   = new(16)      ; clean(C8_KEY)    // Клавиатура Chip8
-C8_STACK = new(16)      ; clean(C8_STACK)  // Стэк Chip8 для работы подпрограмм
-C8_FONT  = C8_get_font()                   // Шрифт Chip8
-C8_S_PTR = 0                               // Указатель на вершину стэка
-C8_I     = 0                               // Индекс I -> необходим для отрисовки спрайтов Chip8
-C8_PC    = 0x200                           // Счетчик комманд Chip8
-C8_DT    = 0                               // Дельта таймер
-C8_ST    = 0                               // Саунд таймер
-C8_DRAW  = 0                               // Статус для рисования экрана                             
+C8_SCR   = new(64 * 32) ; clean(C8_SCR)    // Screen Chip8
+C8_RAM   = new(4096)    ; clean(C8_RAM)    // Ram Chip8
+C8_REG   = new(16)      ; clean(C8_REG)    // Registres Chip8 
+C8_KEY   = new(16)      ; clean(C8_KEY)    // Keyboard Chip8
+C8_STACK = new(16)      ; clean(C8_STACK)  // Stack Chip8 
+C8_FONT  = C8_get_font()                   // Font Chip8
+C8_S_PTR = 0                               // Stack pointer
+C8_I     = 0                               // Index I 
+C8_PC    = 0x200                           // Programm counter Chip8
+C8_DT    = 0                               // Delta Timer
+C8_ST    = 0                               // Sound Timer
+C8_DRAW  = 0                               // Draw status                             
 
 
 
-// PIXILANG инициализация и настройка экрана
+// PIXILANG init
 resize(get_screen(), WINDOW_XSIZE, WINDOW_YSIZE)
 PX_SCR   = get_screen() 
 set_pixel_size(WINDOW_XSIZE / 64)
@@ -28,7 +28,7 @@ Y_OFFSET = -WINDOW_YSIZE div 2
 
 
 
-// Функции загрузки рома
+// Rom functions
 
 fn PX_open_rom()
 {
@@ -47,7 +47,7 @@ fn PX_open_rom()
 }
 
 
-// Функции C8_STACK
+// C8_STACK Functions
 
 fn C8_push($value) 
 {
@@ -67,9 +67,9 @@ fn C8_pop()
 }
 
 
-// Функции экрана
+// Screen Functions
 
-fn PX_draw_screen()  // Рисование экрана пикселями
+fn PX_draw_screen()
 {    
     $x = 0 ; $y = 0
     
@@ -93,7 +93,7 @@ fn PX_draw_screen()  // Рисование экрана пикселями
     
 }
 
-fn C8_draw_text_screen()  // Рисование экрана в консоли
+fn C8_draw_text_screen()
 {
     $offset = 0
     for ($j = 0; $j < get_size(C8_SCR); $j + 1) 
@@ -131,7 +131,7 @@ fn C8_scr_clear()
 }
 
 
-// Загрузка ROM в память консоли
+// Loading Functions
 
 
 fn C8_load_rom($filename)
@@ -173,7 +173,7 @@ fn C8_load_both($filename)
 }
 
 
-// Функции CPU
+// CPU Functions
 
 fn C8_read_opcode($address)
 {
