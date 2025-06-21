@@ -2,20 +2,20 @@ include "cpu.pixi"
 
 fn main() 
 {   
-    $rom = PX_open_rom() // Открываем диалоговое и выбираем файл рома 
-    C8_load_rom($rom)    // Загружаем ром в память консоли
+    $rom = PX_open_rom() // Open dialog screen and choose rom
+    C8_load_rom($rom)    // Load rom into memory
     
     
     $pause = 1
     run = 1
     while run
     {
-        //C8_update_both()    // Обновление таймеров консоли
-        C8_execute($pause)    // Основной цикл процессора
-        if C8_DRAW == 1 {PX_draw_screen(); frame()} // Вывод экрана
+        //C8_update_both()    // Update delta timer
+        C8_execute($pause)    // Execute rom instructions
+        if C8_DRAW == 1 {PX_draw_screen(); frame()} // Draw pixel screen
 
         
-        //if C8_DRAW == 1 { C8_draw_text_screen()} // Текстовый экран
+        //if C8_DRAW == 1 { C8_draw_text_screen()} // Draw text screen
             
         /* STANDARD KEYBOARD TO CHIP 8 KEY
         1 2 3 C  49  50  51  52
@@ -49,7 +49,7 @@ fn main()
                 if key == 114  { C8_KEY[0xD] = 1 }
                 if key == 102  { C8_KEY[0xE] = 1 }
                 if key == 118  { C8_KEY[0xF] = 1 }
-                if key == 112  { $pause ^ 1      } // Пауза
+                if key == 112  { $pause ^ 1      } // Pause
             }
         
             if EVT[ EVT_TYPE ] == EVT_BUTTONUP
